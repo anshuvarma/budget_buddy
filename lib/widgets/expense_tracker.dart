@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_const_constructors, unused_local_variable, avoid_print
+// ignore_for_file: prefer_const_constructors, unused_local_variable, avoid_print, unused_field, unused_element
 
 import 'package:flutter/material.dart';
 import 'package:temp_app/pages/expense_page.dart';
@@ -6,20 +6,16 @@ import 'package:temp_app/pages/new_transaction_page.dart';
 import 'package:temp_app/widgets/bottom_nav_bar.dart';
 import 'package:temp_app/widgets/overall_expense.dart';
 import 'package:temp_app/widgets/recent_transactions.dart';
-import 'package:flutter/services.dart';
-import '../db_helper.dart';
 
 class ExpenseTracker extends StatefulWidget {
-  static const MethodChannel _channel =
-      MethodChannel('com.example.coin_check/transaction');
-
   const ExpenseTracker({super.key});
 
   @override
   State<ExpenseTracker> createState() => _ExpenseTrackerState();
 }
 
-class _ExpenseTrackerState extends State<ExpenseTracker> {
+class _ExpenseTrackerState extends State<ExpenseTracker>
+    with WidgetsBindingObserver {
   int currentIndex = 0;
   final GlobalKey<RecentTransactionsState> recentTransactionsKey =
       GlobalKey<RecentTransactionsState>();
@@ -35,95 +31,48 @@ class _ExpenseTrackerState extends State<ExpenseTracker> {
   @override
   void initState() {
     super.initState();
-
-    // Listen for method calls from Android (native side)
-    ExpenseTracker._channel.setMethodCallHandler((call) async {
-      if (call.method == 'addTransaction') {
-        // Extract transaction details from the native call arguments
-        final Map<String, dynamic> transactionDetails = call.arguments;
-        print(
-            "Received addTransaction method with details: $transactionDetails");
-        // Display a prompt to the user to confirm adding the transaction
-        _promptTransaction(transactionDetails);
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
   }
 
-  // Display a dialog to confirm adding the transaction
-  void _promptTransaction(Map<String, dynamic> transactionDetails) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text("Add Transaction?"),
-          content: Text(
-            "We detected a payment notification:\n"
-            "Amount: ${transactionDetails['amount']}\n"
-            "Description: ${transactionDetails['description'] ?? 'N/A'}",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Dismiss the dialog
-              },
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Dismiss the dialog
-                _handleTransaction(transactionDetails); // Add transaction
-              },
-              child: Text("Add"),
-            ),
-          ],
-        );
-      },
-    );
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
-  // Method to handle the incoming transaction data
-  void _handleTransaction(Map<String, dynamic> transactionDetails) {
-    // Parse transaction details
-    final type = isExpense ? 'Expense' : 'Income';
-    final amount = _amountController.text;
-    final date =
-        '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}';
-    final account = isExpense ? selectedAccount : 'N/A';
-    final categoryOrSource = isExpense ? selectedCategory : selectedSource;
-
-    // Save the transaction (this is where you integrate with your DBHelper class)
-    // Example:
-    final dbHelper = DBHelper();
-    dbHelper.insertTransaction({
-      'name': type,
-      'category': categoryOrSource,
-      'amount': amount,
-      'date': date,
-      'isExpense': isExpense ? 1 : 0,
-    });
-
-    // Refresh the transactions in the app
-    refreshTransactions();
-  }
-
-  void onItemTapped(int index) {
-    setState(() {
-      currentIndex = index;
-    });
-
+  void onItemTapped(int index) async {
     if (index == 1) {
-      // Navigate to ExpensePage when "Expense" is tapped
-      Navigator.push(
+      // Navigate to ExpensePage and await result
+      final result = await Navigator.push<bool>(
         context,
         MaterialPageRoute(builder: (context) => ExpensePage()),
       );
+
+      // If any changes were made on ExpensePage, refresh transactions
+      if (result == true) {
+        refreshTransactions();
+      }
+    } else {
+      setState(() {
+        currentIndex = index;
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh transactions when returning to the app
+      refreshTransactions();
     }
   }
 
   void refreshTransactions() {
+    print("Refreshing transactions...");
     recentTransactionsKey.currentState?.refreshTransactionList();
     overallExpenseKey.currentState
         ?.fetchTransactions(); // Refresh the overall expenses
+    print("Transactions refreshed.");
   }
 
   @override
@@ -177,7 +126,7 @@ class _ExpenseTrackerState extends State<ExpenseTracker> {
         backgroundColor: Color.fromARGB(255, 250, 189, 241),
         foregroundColor: Colors.black,
         onPressed: () async {
-          final result = await Navigator.push(
+          final result = await Navigator.push<bool>(
             context,
             MaterialPageRoute(
               builder: (context) => NewTransactionPage(

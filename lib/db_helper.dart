@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -49,17 +51,19 @@ class DBHelper {
   // Insert a transaction into the database
   Future<int> insertTransaction(Map<String, dynamic> transaction) async {
     final db = await database;
-    return await db.insert('transactions', transaction);
+    print("Inserting transaction: $transaction");
+    final result = await db.insert('transactions', transaction);
+    print("Transaction inserted with ID: $result");
+    return result;
   }
 
   // Fetch all transactions from the database
   Future<List<Map<String, dynamic>>> fetchTransactions() async {
-  final db = await database;
-  final List<Map<String, dynamic>> result = await db.rawQuery(
-    'SELECT id, name, category, CAST(amount AS REAL) AS amount, date, isExpense FROM transactions'
-  );
-  return result;
-}
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+        'SELECT id, name, category, CAST(amount AS REAL) AS amount, date, isExpense FROM transactions');
+    return result;
+  }
 
   // Delete a transaction from the database
   Future<int> deleteTransaction(int id) async {

@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, prefer_const_constructors
+// ignore_for_file: use_build_context_synchronously, prefer_const_constructors, unused_element
 
 import 'package:flutter/material.dart';
 import 'package:temp_app/constants.dart';
@@ -16,6 +16,13 @@ class ExpensePage extends StatefulWidget {
 }
 
 class _ExpensePageState extends State<ExpensePage> {
+  bool transactionsUpdated = false;
+  // Override the back navigation manually
+  Future<bool> _onWillPop() async {
+    Navigator.pop(context, transactionsUpdated); // Return update status
+    return Future.value(false); // Prevent default pop behavior
+  }
+
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey<RecentTransactionsState> recentTransactionsKey =
       GlobalKey<RecentTransactionsState>();
@@ -24,6 +31,18 @@ class _ExpensePageState extends State<ExpensePage> {
   String searchQuery = '';
   int currentIndex = 1;
   List<Map<String, dynamic>> newTransactions = [];
+
+  void updateTransactions() {
+    // Perform transaction update logic
+    transactionsUpdated = true;
+  }
+
+  // Override the back navigation behavior
+  @override
+  void dispose() {
+    Navigator.pop(context, transactionsUpdated); // Ensure update is passed
+    super.dispose();
+  }
 
   void onItemTapped(int index) {
     setState(() {
@@ -82,7 +101,6 @@ class _ExpensePageState extends State<ExpensePage> {
   @override
   Widget build(BuildContext context) {
     List<Map<String, dynamic>> filteredTransactions = getFilteredTransactions();
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color.fromARGB(255, 250, 189, 241),
@@ -90,7 +108,8 @@ class _ExpensePageState extends State<ExpensePage> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context);
+            // Handle back button press
+            Navigator.pop(context, true);
           },
         ),
         title: Text(
@@ -178,76 +197,77 @@ class _ExpensePageState extends State<ExpensePage> {
 
             // Transaction List
             Expanded(
-                child: newTransactions.isNotEmpty
-                    ? ListView.builder(
-                        itemCount: filteredTransactions.length,
-                        itemBuilder: (context, index) {
-                          final transaction = filteredTransactions[index];
-                          final category = transaction['category'];
-                          final color = categoryColors[category] ?? Colors.cyan;
+              child: newTransactions.isNotEmpty
+                  ? ListView.builder(
+                      itemCount: filteredTransactions.length,
+                      itemBuilder: (context, index) {
+                        final transaction = filteredTransactions[index];
+                        final category = transaction['category'];
+                        final color = categoryColors[category] ?? Colors.cyan;
 
-                          return Dismissible(
-                            key: ValueKey(transaction['id']),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              color: Colors.red,
-                              child:
-                                  const Icon(Icons.delete, color: Colors.white),
+                        return Dismissible(
+                          key: ValueKey(transaction['id']),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            color: Colors.red,
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) => showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text("Delete Transaction"),
+                              content: Text(
+                                  "Are you sure you want to delete this transaction?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(true),
+                                  child: Text("Delete"),
+                                ),
+                              ],
                             ),
-                            confirmDismiss: (direction) => showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text("Delete Transaction"),
-                                content: Text(
-                                    "Are you sure you want to delete this transaction?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    child: Text("Delete"),
-                                  ),
+                          ),
+                          onDismissed: (direction) {
+                            _deleteTransaction(transaction['id']);
+                          },
+                          child: Card(
+                            color: color.withValues(),
+                            child: ListTile(
+                              leading: Icon(Icons.account_balance_wallet,
+                                  color: Colors.black),
+                              title: Text(transaction['category'],
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(transaction['date']),
                                 ],
                               ),
-                            ),
-                            onDismissed: (direction) {
-                              _deleteTransaction(transaction['id']);
-                            },
-                            child: Card(
-                              // ignore: deprecated_member_use
-                              color: color.withOpacity(0.6),
-                              child: ListTile(
-                                leading: Icon(Icons.account_balance_wallet,
-                                    color: Colors.black),
-                                title: Text(transaction['category'],
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(transaction['date']),
-                                  ],
-                                ),
-                                trailing: Text(
-                                  transaction['amount'].toString(),
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white),
-                                ),
+                              trailing: Text(
+                                transaction['amount'].toString(),
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                               ),
                             ),
-                          );
-                        },
-                      )
-                    : Center(child: Text('No transactions yet!'))),
+                          ),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Text('No transactions yet!'),
+                    ),
+            ),
           ],
         ),
       ),

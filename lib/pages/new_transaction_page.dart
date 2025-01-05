@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, unnecessary_null_comparison, prefer_const_constructors, unused_local_variable, sized_box_for_whitespace, library_private_types_in_public_api
+// ignore_for_file: use_build_context_synchronously, unnecessary_null_comparison, prefer_const_constructors, unused_local_variable, sized_box_for_whitespace, library_private_types_in_public_api, avoid_print
 
 import 'package:flutter/material.dart';
 import '../db_helper.dart';
@@ -54,6 +54,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     final categoryOrSource = isExpense ? selectedCategory : selectedSource;
 
     final dbHelper = DBHelper();
+    print("Saving transaction: {name: $type, category: $categoryOrSource, amount: $amount, date: $date, isExpense: ${isExpense ? 1 : 0}}");
     await dbHelper.insertTransaction({
       'name': type,
       'category': categoryOrSource,
@@ -71,6 +72,8 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     });
 
     // Pass a result back to the previous page
+    print("Transaction saved, calling onUpdate callback...");
+    // Close the current page and return to the previous one
     widget.onUpdate();
     Navigator.pop(context, true);
   }
@@ -106,7 +109,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                   return GestureDetector(
                     onTap: () {
                       onChanged(item);
-                      Navigator.pop(context);
+                      Navigator.pop(context, true);
                     },
                     child: Container(
                       decoration: BoxDecoration(
@@ -168,7 +171,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pop(context, true);
           },
         ),
         title: Text(

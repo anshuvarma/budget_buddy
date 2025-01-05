@@ -1,4 +1,4 @@
-// ignore_for_file: annotate_overrides, prefer_const_constructors
+// ignore_for_file: annotate_overrides, prefer_const_constructors, avoid_print
 
 import 'package:flutter/material.dart';
 import '../db_helper.dart';
@@ -13,25 +13,36 @@ class RecentTransactions extends StatefulWidget {
   RecentTransactionsState createState() => RecentTransactionsState();
 }
 
-class RecentTransactionsState extends State<RecentTransactions> {
+class RecentTransactionsState extends State<RecentTransactions>
+    with WidgetsBindingObserver {
   late Future<List<Map<String, dynamic>>> transactionsFuture;
   final dbHelper = DBHelper();
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadTransactions(); // Reload transactions when dependencies change
-  }
-
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     transactionsFuture = dbHelper.fetchTransactions();
   }
 
-  Future<void> _loadTransactions() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh transactions when app resumes
+      _loadTransactions();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTransactions();
+  }
+
+  _loadTransactions() {
     setState(() {
       transactionsFuture = dbHelper.fetchTransactions().then(
-            (transaction) => transaction.reversed.toList(),
+            (transactions) => transactions.reversed.toList(),
           );
     });
   }
@@ -78,7 +89,6 @@ class RecentTransactionsState extends State<RecentTransactions> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-            // Get only the 5 most recent transactions
             final transactions = snapshot.data!.take(5).toList();
             return ListView.builder(
               itemCount: transactions.length,
@@ -98,14 +108,13 @@ class RecentTransactionsState extends State<RecentTransactions> {
                   confirmDismiss: (direction) => _confirmDeletion(),
                   onDismissed: (direction) {
                     _deleteTransaction(transaction['id']);
-                    deleteDialog(context);
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        // ignore: deprecated_member_use
-                        color: cardColor.withOpacity(0.6),
+                        color: cardColor.withValues(),
+                        // color: cardColor.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       padding: const EdgeInsets.all(16),
@@ -163,5 +172,11 @@ class RecentTransactionsState extends State<RecentTransactions> {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 }
